@@ -6,7 +6,7 @@ library(Lahman)
 library(purrr)
 
 # Load batting data from Lahman Baseball Database
-batting <- read.csv("Batting.csv") %>% 
+batting <- read.csv("~/Stat_631/Dataset/Batting.csv") %>% 
   select(playerID,yearID,stint,teamID,lgID,G,AB,R,H,X2B,X3B,HR) %>% 
   rename("Player_ID" = playerID,
          "Year_ID" = yearID,
@@ -20,7 +20,7 @@ batting <- read.csv("Batting.csv") %>%
          "Doubles" = X2B,
          "Triples" = X3B,
          "Home_Runs" = HR)
-people <- read.csv("People.csv") %>% 
+people <- read.csv("~/Stat_631/Dataset/People.csv") %>% 
   select(playerID,birthYear,birthMonth,birthDay,birthCountry,birthState,birthCity,nameFirst,nameLast,nameGiven,weight,height,bats,throws,debut,finalGame) %>% 
   rename("Player_ID" = playerID,
          "Birth_Year" = birthYear,
@@ -39,29 +39,29 @@ people <- read.csv("People.csv") %>%
          "Debut" = debut,
          "Final_Game" = finalGame)
 
-fielding <- read.csv("Fielding.csv") %>% 
+fielding <- read.csv("~/Stat_631/Dataset/Fielding.csv") %>% 
   select(playerID,POS) %>% 
   rename("Player_ID" = playerID,
          "Position" = POS)
 
-salaries <- read.csv("Salaries.csv") %>% 
+salaries <- read.csv("~/Stat_631/Dataset/Salaries.csv") %>% 
   select(playerID, salary) %>% 
   rename("Player_ID" = playerID,
          "Salary" = salary)
 
-collegeplaying <- read.csv("CollegePlaying.csv") %>% 
+collegeplaying <- read.csv("~/Stat_631/Dataset/CollegePlaying.csv") %>% 
   select(playerID, schoolID,yearID) %>% 
   rename("Player_ID" = playerID,
          "School_Playing" = schoolID,
          "Year_ID" = yearID)
 
 
-school <- read.csv("Schools.csv") %>% 
+school <- read.csv("~/Stat_631/Dataset/Schools.csv") %>% 
   select(schoolID,name_full) %>% 
   rename("School_Playing" = schoolID,
          "School_Name" = name_full)
 
-awards <- read.csv("AwardsPlayers.csv") %>% 
+awards <- read.csv("~/Stat_631/Dataset/AwardsPlayers.csv") %>% 
   select(playerID,awardID) %>% 
   rename("Player_ID" = playerID,
          "Awards" = awardID)

@@ -1,2 +1,2 @@
-# Stat_631
-Factors affecting the batting average of the baseball player
+# STA_631_Project
+Final project repo for STA 631.

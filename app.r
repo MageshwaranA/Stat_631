@@ -1,16 +1,15 @@
-# Load required packages
-library(shiny)
+# Load necessary packages
 library(dplyr)
 library(ggplot2)
 library(corrplot)
 library(Lahman)
+library(purrr)
+library(olsrr) # For the forward selection model
 
 # Load batting data from Lahman Baseball Database
-batting <- read.csv("Batting.csv") %>% 
+g_batting <- read.csv("~/Stat_631/Dataset/Batting.csv") %>% 
   select(playerID,yearID,stint,teamID,lgID,G,AB,R,H,X2B,X3B,HR) %>% 
   rename("Player_ID" = playerID,
-         "Year_ID" = yearID,
-         "Stint" = stint,
          "Team" = teamID,
          "League" = lgID,
          "Games_Played" = G,
@@ -20,82 +19,95 @@ batting <- read.csv("Batting.csv") %>%
          "Doubles" = X2B,
          "Triples" = X3B,
          "Home_Runs" = HR)
-people <- read.csv("People.csv") %>% 
-  select(playerID,birthYear,birthMonth,birthDay,birthCountry,birthState,birthCity,nameFirst,nameLast,nameGiven,weight,height,bats,throws,debut,finalGame) %>% 
+
+
+# Group by player_id and team
+batting <- g_batting %>% 
+  group_by(Player_ID,Team) %>% 
+  summarise(Games_Played = sum(Games_Played),
+            At_Bats = sum(At_Bats),
+            Runs = sum(Runs),
+            Hits = sum(Hits),
+            Double = sum(Doubles),
+            Triples = sum(Triples),
+            Home_Runs = sum(Home_Runs))
+
+
+people <- read.csv("~/Stat_631/Dataset/People.csv") %>% 
+  select(playerID,birthCountry,weight,height,bats,throws) %>% 
   rename("Player_ID" = playerID,
-         "Birth_Year" = birthYear,
-         "Birth_Month" = birthMonth,
-         "Birth_Day" = birthDay,
          "Birth_Country" = birthCountry,
-         "Birth_State" = birthState,
-         "Birth_City" = birthCity,
-         "First_Name" = nameFirst,
-         "Last_Name" = nameLast,
-         "Given_Name" = nameGiven,
          "Weight" = weight,
          "Height" = height,
          "Batting_Hand" = bats,
-         "Throwing_Hand" = throws,
-         "Debut" = debut,
-         "Final_Game" = finalGame)
+         "Throwing_Hand" = throws)
 
-fielding <- read.csv("Fielding.csv") %>% 
-  select(playerID,POS) %>% 
+fielding <- read.csv("~/Stat_631/Dataset/Fielding.csv") %>% 
+  select(playerID,POS,teamID) %>% 
   rename("Player_ID" = playerID,
-         "Position" = POS)
+         "Position" = POS,
+         "Team" = teamID)
 
-salaries <- read.csv("Salaries.csv") %>% 
-  select(playerID, salary) %>% 
+g_salaries <- read.csv("~/Stat_631/Dataset/Salaries.csv") %>% 
+  select(playerID, salary,teamID) %>% 
   rename("Player_ID" = playerID,
-         "Salary" = salary)
+         "Salary" = salary,
+         "Team" = teamID)
 
-collegeplaying <- read.csv("CollegePlaying.csv") %>% 
-  select(playerID, schoolID,yearID) %>% 
+# Group by salary and team
+salaries <- g_salaries %>% 
+  group_by(Player_ID,Team) %>% 
+  summarise(Salary = sum(Salary))
+
+
+collegeplaying <- read.csv("~/Stat_631/Dataset/CollegePlaying.csv") %>% 
+  select(playerID, schoolID) %>% 
   rename("Player_ID" = playerID,
-         "School_Playing" = schoolID,
-         "Year_ID" = yearID)
+         "School_Playing" = schoolID)
 
 
-school <- read.csv("Schools.csv") %>% 
-  select(schoolID,name_full) %>% 
-  rename("School_Playing" = schoolID,
-         "School_Name" = name_full)
-
-awards <- read.csv("AwardsPlayers.csv") %>% 
+awards <- read.csv("~/Stat_631/Dataset/AwardsPlayers.csv") %>% 
   select(playerID,awardID) %>% 
   rename("Player_ID" = playerID,
          "Awards" = awardID)
 
 #Removing the duplicate values
-batting <- batting[!duplicated(t(apply(batting,1,sort))),]
-people <- people[!duplicated(t(apply(people,1,sort))),]
-fielding <- fielding[!duplicated(t(apply(fielding,1,sort))),]
-salaries <- salaries[!duplicated(t(apply(salaries,1,sort))),]
-collegeplaying <- collegeplaying[!duplicated(t(apply(collegeplaying,1,sort))),]
-school <- school[!duplicated(t(apply(school,1,sort))),]
-awards <- awards[!duplicated(t(apply(awards,1,sort))),]
+# batting <- batting[!duplicated(t(apply(batting,1,sort))),]
+# people <- people[!duplicated(t(apply(people,1,sort))),]
+# fielding <- fielding[!duplicated(t(apply(fielding,1,sort))),]
+# salaries <- salaries[!duplicated(t(apply(salaries,1,sort))),]
+# collegeplaying <- collegeplaying[!duplicated(t(apply(collegeplaying,1,sort))),]
+# school <- school[!duplicated(t(apply(school,1,sort))),]
+# awards <- awards[!duplicated(t(apply(awards,1,sort))),]
+
+batting <- distinct(batting)
+people <- distinct(people)
+fielding <- distinct(fielding)
+salaries <- distinct(salaries)
+collegeplaying <- distinct(collegeplaying)
+awards <- distinct(awards)
 
 #Merging all dataset to get one final dataset
-final_data <- merge(batting, people, by = "Player_ID")
-final_data <- merge(final_data, fielding, by = "Player_ID")
-final_data <- merge(final_data, salaries , by = "Player_ID")
-final_data <- merge(final_data, collegeplaying, by = "Player_ID")
-final_data <- merge(final_data, school, by = "School_Playing")
-final_data <- merge(final_data, awards, by = "Player_ID")
+final_data <- merge(batting, people, by = "Player_ID",all = FALSE)
+final_data <- merge(final_data, fielding, by = c("Player_ID","Team"),all = FALSE)
+final_data <- merge(final_data, salaries , by = c("Player_ID","Team"),all = FALSE)
+final_data <- merge(final_data, collegeplaying, by = "Player_ID",all = FALSE)
+final_data <- merge(final_data, awards, by = "Player_ID",all = FALSE)
+
+# final_data <- batting %>%
+#   left_join(people, by = "Player_ID",relationship = "many-to-many") %>%
+#   left_join(fielding, by = "Player_ID",relationship = "many-to-many") %>%
+#   left_join(salaries, by = "Player_ID",relationship = "many-to-many") %>%
+#   left_join(collegeplaying, by = "Player_ID",relationship = "many-to-many") %>%
+#   left_join(school, by = "School_Playing",relationship = "many-to-many") %>%
+#   left_join(awards, by = "Player_ID",relationship = "many-to-many")
 
 
 # Create new variable for batting average
 final_data$Average <- ifelse(is.nan(final_data$Hits / final_data$At_Bats),0,final_data$Hits / final_data$At_Bats)
-
+final_data <- subset(final_data,select = -c(At_Bats,Hits,Player_ID))
 # Remove missing data
 final_data <- na.omit(final_data)
-
-
-#Create a new variable for age
-final_data$Current_Age <- as.integer((Sys.Date() - as.Date(paste(final_data$Birth_Year, final_data$Birth_Month, final_data$Birth_Day, sep = "-"))) / 365.25)
-final_data$Debut_Age <- as.integer((Sys.Date() - as.Date(final_data$Debut)) / 365.25)
-final_data$FinalGame_Age <- as.integer((Sys.Date() - as.Date(final_data$Final_Game)) / 365.25)
-
 
 # Define user interface
 ui <- fluidPage(
@@ -103,7 +115,21 @@ ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
       checkboxGroupInput("options", "Select Options:",
-                         choices = c("Games_Played", "Position", "School_Playing"),
+                         choices = c("Games_Played",
+                                     "Team",
+                                     "Runs",
+                                     "Double",
+                                     "Triples",
+                                     "Home_Runs",
+                                     "Birth_Country",
+                                     "Weight",
+                                     "Height",
+                                     "Batting_Hand",
+                                     "Throwing_Hand",
+                                     "Position",
+                                     "Salary",
+                                     "School_Playing",
+                                     "Awards"),
                          selected = c("Games_Played")),
       tags$div(
         style = "font-size: 24px;",
@@ -114,11 +140,11 @@ ui <- fluidPage(
     mainPanel(
       h4("Multiple Linear Regression Model:"),
       verbatimTextOutput("selectedoptions"),
-      plotOutput("mlr"),
+      plotOutput("correlationplot"),
       textOutput("des"),
-      plotOutput("rdp"),
-      plotOutput("hist"),
-      plotOutput("rp")
+      plotOutput("outliers"),
+      textOutput("descoutliers"),
+      textOutput("backwarddesc")
       
     )
   )
@@ -126,52 +152,66 @@ ui <- fluidPage(
 
 # Define server logic
 server <- function(input, output) {
-  filtered_data <- reactive({
-    final_data %>% filter(At_Bats > 30)
-  })
   
   independent_vars <- reactive({
     input$options
   })
   
   model <- reactive({
-    lm(Average ~ ., data = filtered_data()[, c("Average", independent_vars())])
+    lm(Average ~ ., data = final_data[, c("Average", independent_vars())])
+  })
+  
+  t <- reactive({
+    4/nrow(final_data)
+  })
+  
+  cooks_distance <- reactive({
+    cooks.distance(model())
+  })
+  
+  clean_pd <- reactive({
+    final_data[-c(which(cooks_distance()>t())),]
+  })
+  
+  selected_model <- reactive({
+    step(lm(Average~., data=clean_pd()), direction="backward")
   })
   
   output$selectedoptions <- renderPrint({
     paste("You have selected the following options:", paste(input$options, collapse = "+ "))
   })
   
-  output$mlr <- renderPlot({
-    predicted <- predict(model(), newdata = filtered_data())
-    ggplot(filtered_data(), aes(x = Average, y = predicted)) +
-      geom_point() +
-      geom_abline(intercept = 0, slope = 1, color = "red") +
-      labs(x = "Actual Batting Average", y = "Predicted Batting Average")
+  output$correlationplot <- renderPlot({
+
+    numeric_data <- final_data %>% 
+      select_if(is.numeric)
+    
+    # Plot the correlation matrix
+    
+    corrplot(cor(numeric_data), method = "circle")
   })
+  
   
   output$des <- renderText({
-    paste("The intercept value of the model is", coef(model()), "which means that if all the independent variables in the model are zero, the expected value of the dependent variable (Average) would be", coef(model()))
+    paste(round(summary(model())$adj.r.squared,2))
   })
   
-  output$rdp <- renderPlot({
-    qqnorm(model()$residuals)
-    qqline(model()$residuals)
+
+  output$outliers <- renderPlot({
+    plot(cooks_distance())
   })
-  output$hist <- renderPlot({
-    # Create a histogram of residuals
-    hist(model()$residuals)
+  output$descoutliers <- renderText({
+    paste(round(summary(lm(Average~., data=clean_pd()))$adj.r.squared,2))
   })
-  output$rp <- renderPlot({
+  
+  output$backwarddesc <- renderText({
     # Create a residual plot
-    plot(model(), which = 1)
-    
+    paste(round(summary(selected_model())$adj.r.squared,2))
+  })
+  output$adj_r_squared <- renderText({
+    paste(round(summary(selected_model())$adj.r.squared,0),"%")
   })
   
-  output$adj_r_squared <- renderText({
-    adj_r_sq <- paste(round(summary(model())$adj.r.squared, 2) * 100," %")
-    adj_r_sq
-  })
 }
 
 

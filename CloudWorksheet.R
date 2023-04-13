@@ -110,7 +110,6 @@ final_data <- subset(final_data,select = -c(At_Bats,Hits,Player_ID))
 final_data <- na.omit(final_data)
 
 
-
 library(corrplot)
 
 # Select only the numeric variables

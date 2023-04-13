@@ -7,7 +7,7 @@ library(purrr)
 library(olsrr) # For the forward selection model
 
 # Load batting data from Lahman Baseball Database
-g_batting <- read.csv("~/Masters Project/Stat_631/Dataset/Batting.csv") %>% 
+g_batting <- read.csv("~/Stat_631/Dataset/Batting.csv") %>% 
   select(playerID,yearID,stint,teamID,lgID,G,AB,R,H,X2B,X3B,HR) %>% 
   rename("Player_ID" = playerID,
          "Team" = teamID,
@@ -33,7 +33,7 @@ batting <- g_batting %>%
             Home_Runs = sum(Home_Runs))
 
 
-people <- read.csv("~/Masters Project/Stat_631/Dataset/People.csv") %>% 
+people <- read.csv("~/Stat_631/Dataset/People.csv") %>% 
   select(playerID,birthCountry,weight,height,bats,throws) %>% 
   rename("Player_ID" = playerID,
          "Birth_Country" = birthCountry,
@@ -42,13 +42,13 @@ people <- read.csv("~/Masters Project/Stat_631/Dataset/People.csv") %>%
          "Batting_Hand" = bats,
          "Throwing_Hand" = throws)
 
-fielding <- read.csv("~/Masters Project/Stat_631/Dataset/Fielding.csv") %>% 
+fielding <- read.csv("~/Stat_631/Dataset/Fielding.csv") %>% 
   select(playerID,POS,teamID) %>% 
   rename("Player_ID" = playerID,
          "Position" = POS,
          "Team" = teamID)
 
-g_salaries <- read.csv("~/Masters Project/Stat_631/Dataset/Salaries.csv") %>% 
+g_salaries <- read.csv("~/Stat_631/Dataset/Salaries.csv") %>% 
   select(playerID, salary,teamID) %>% 
   rename("Player_ID" = playerID,
          "Salary" = salary,
@@ -60,13 +60,13 @@ salaries <- g_salaries %>%
   summarise(Salary = sum(Salary))
 
 
-collegeplaying <- read.csv("~/Masters Project/Stat_631/Dataset/CollegePlaying.csv") %>% 
+collegeplaying <- read.csv("~/Stat_631/Dataset/CollegePlaying.csv") %>% 
   select(playerID, schoolID) %>% 
   rename("Player_ID" = playerID,
          "School_Playing" = schoolID)
 
 
-awards <- read.csv("~/Masters Project/Stat_631/Dataset/AwardsPlayers.csv") %>% 
+awards <- read.csv("~/Stat_631/Dataset/AwardsPlayers.csv") %>% 
   select(playerID,awardID) %>% 
   rename("Player_ID" = playerID,
          "Awards" = awardID)
@@ -105,27 +105,9 @@ final_data <- merge(final_data, awards, by = "Player_ID",all = FALSE)
 
 # Create new variable for batting average
 final_data$Average <- ifelse(is.nan(final_data$Hits / final_data$At_Bats),0,final_data$Hits / final_data$At_Bats)
-
+final_data <- subset(final_data,select = -c(At_Bats,Hits,Player_ID))
 # Remove missing data
 final_data <- na.omit(final_data)
-
-# Create a new variable for age
-# final_data$Current_Age <- as.integer((Sys.Date() - as.Date(paste(final_data$Birth_Year, final_data$Birth_Month, final_data$Birth_Day, sep = "-"))) / 365.25)
-# final_data$Debut_Age <- as.integer((Sys.Date() - as.Date(final_data$Debut)) / 365.25)
-# final_data$FinalGame_Age <- as.integer((Sys.Date() - as.Date(final_data$Final_Game)) / 365.25)
-
-# final_data$Player_ID <- as.factor(final_data$Player_ID)
-# final_data$Team <- as.factor(final_data$Team)
-# final_data$League <- as.factor(final_data$League)
-# final_data$Birth_Country <- as.factor(final_data$Birth_Country)
-# final_data$Batting_Hand <- as.factor(final_data$Batting_Hand)
-# final_data$Throwing_Hand <- as.factor(final_data$Throwing_Hand)
-# final_data$Debut <- as.factor(final_data$Debut)
-# final_data$Position <- as.factor(final_data$Position)
-# final_data$School_Playing <- as.factor(final_data$School_Playing)
-# final_data$School_Name <- as.factor(final_data$School_Name)
-# final_data$Awards <- as.factor(final_data$Awards)
-
 
 
 
@@ -142,6 +124,7 @@ cor_matrix <- cor(numeric_data)
 corrplot(cor_matrix, method = "circle")
 
 model <- lm(Average ~., data = final_data)
+summary(model)
 
 t = 4/nrow(final_data)
 cooks_distance <- cooks.distance(model)
@@ -154,12 +137,6 @@ clean_pd <- final_data[-c(outliers),]
 model1 <- lm(Average~., data=clean_pd)
 summary(model1)
 
-library(MASS)
-base_mdl <- lm(Average~Games_Played+Position, data=clean_pd)
-full_mdl <- lm(Average~., data=clean_pd)
-
-# Note k=2 uses AIC.  You can use k=log(n) if you want BIC
-backward_mdl <- step(full_mdl, scope=list(lower=base_mdl, upper=full_mdl), direction="backward", k=2)
 
 # Perform backward selection using the step function
 selected_model <- step(model, direction="backward")
@@ -197,6 +174,12 @@ summary(selected_model)
 
 
 
+# library(MASS)
+# base_mdl <- lm(Average~Games_Played+Position, data=clean_pd)
+# full_mdl <- lm(Average~., data=clean_pd)
+# 
+# # Note k=2 uses AIC.  You can use k=log(n) if you want BIC
+# backward_mdl <- step(full_mdl, scope=list(lower=base_mdl, upper=full_mdl), direction="backward", k=2)
 
 # #Create a model
 # model <- lm(Average ~ Games_Played + Position + School_Playing, data = final_data %>% filter(At_Bats > 30))

@@ -280,7 +280,9 @@ The numerical values are considered for the correlation matrix since the categor
   })
   output$backwarddesc <- renderText({
     # Create a residual plot
-    paste("The adjusted R Square value of the Backward Selected Model is: <b>",round(summary(selected_model())$adj.r.squared * 100,2),"</b>")
+    paste("The adjusted R Square value of the Backward Selected Model is: <b>",round(summary(selected_model())$adj.r.squared * 100,2),"</b>",
+          br(),"The F-statistic and its associated p-value indicate whether the overall model is statistically significant. In this case, the F-statistic is <b>",
+          summary(model())$fstatistic[1],"</b> indicating that the model is statistically significant.")
   })
   output$adj_r_squared <- renderText({
     paste(round(summary(selected_model())$adj.r.squared * 100,0),"%")

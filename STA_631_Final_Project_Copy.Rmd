@@ -1,0 +1,148 @@
+---
+title: "STA_631_Final_Project"
+output: html_notebook
+---
+
+```{r setup}
+rm(list=ls())
+setwd("/home/torent/STA 631/Final_Project/STA_631_Project_New/Stat_631") #setwd("/home/torent/CIS 671/CIS 671 Project")
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(tidymodels)
+library(GGally)
+library(data.table)
+library(stringr)
+```
+
+```{r load_data}
+batting_data <- read_csv("Dataset/mlbbat10.csv") %>%
+  select(c("name", "team", "position", "bat_avg", "at_bat", "game")) %>%
+  filter(at_bat > 30)
+
+person_data <- read_csv("Dataset/People.csv") %>% 
+  select(c("nameFirst", "nameLast","playerID")) #Removed "birthYear", "birthMonth", "birthCountry", "birthState", "weight", "height"
+person_data$name <- paste(substr(person_data$nameFirst,1,1),person_data$nameLast)
+
+league_data <- read_csv("Dataset/Batting.csv") %>%
+  select("playerID", "lgID")
+league_data <- na.omit(league_data)
+```
+
+```{r combined_data}
+dfList <- list(league_data, person_data)
+person_data <- Reduce(function(x, y) merge(x, y), dfList)
+dfList2 <- list(batting_data, person_data)
+batting_person <- Reduce(function(x, y) merge(x, y), dfList2)
+```
+
+```{r batting_avg_dist}
+batting_person %>% 
+  ggplot(aes(x=bat_avg)) + 
+  geom_histogram(bins = 24) + 
+  theme_bw()
+```
+
+```{r linear_models}
+# height_model <- lm(bat_avg ~ height, data = batting_person)
+# tidy(height_model)
+# summary(height_model)
+# deviance(height_model)
+
+# R^2 = 0.009531 (Too Low)
+
+# weight_model <- lm(bat_avg ~ weight, data = batting_person)
+# tidy(weight_model)
+# summary(weight_model)
+# deviance(weight_model)
+
+# R^2 = -0.000859 (Terrible)
+
+# batting_person$birthMonth <- as.factor(batting_person$birthMonth)
+# birthMonth_model <- lm(bat_avg ~ birthMonth, data = batting_person)
+# tidy(birthMonth_model)
+# summary(birthMonth_model)
+# deviance(birthMonth_model)
+
+# R^2 = 0.001974 (Too Low)
+
+# batting_person$birthState <- as.factor(batting_person$birthState)
+# birthState_model <- lm(bat_avg ~ birthState, data = batting_person)
+# tidy(birthState_model)
+# summary(birthState_model)
+# deviance(birthState_model)
+
+# R^2 = 0.01726 (Too Low), p-values too high
+
+# batting_person$birthState <- as.factor(batting_person$birthState)
+# birthState_model <- lm(bat_avg ~ birthState, data = batting_person)
+# tidy(birthState_model)
+# summary(birthState_model)
+# deviance(birthState_model)
+
+# R^2 too low, p-values too high
+
+# batting_person$bats <- as.factor(batting_person$bats)
+# bats_model <- lm(bat_avg ~ bats, data = batting_person)
+# tidy(bats_model)
+# summary(bats_model)
+# deviance(bats_model)
+
+# R^2 too low, p-values too high
+
+# batting_person$birthCountry <- as.factor(batting_person$birthCountry)
+# birthCountry_model <- lm(bat_avg ~ birthCountry, data = batting_person)
+# tidy(birthCountry_model)
+# summary(birthCountry_model)
+# deviance(birthCountry_model)
+
+# R^2 too low, p-values too high
+
+# batting_person$birthYear <- batting_person$birthYear - 1844
+# birthYear_model <- lm(bat_avg ~ birthYear, data = batting_person)
+# tidy(birthYear_model)
+# summary(birthYear_model)
+# deviance(birthYear_model)
+
+# Terrible
+
+#Use these 2 models
+game_model <- lm(bat_avg ~ game, data = batting_person)
+tidy(game_model)
+summary(game_model)
+deviance(game_model)
+
+batting_person$position <- as.factor(batting_person$position)
+position_model <- lm(bat_avg ~ position, data = batting_person)
+tidy(position_model)
+summary(position_model)
+deviance(position_model)
+```
+
+```{r multi_linear_model}
+# Best model so far
+mlr_models <- lm(bat_avg ~ game + position, data = batting_person)
+summary(mlr_models)
+# dfList <- list(batting_data, person_data)
+# batting_person <- Reduce(function(x, y) merge(x, y), dfList) #, all = TRUE
+# batting_person <- merge(batting_data, person_data)
+```
+
+# More Data:
+# Salaries
+
+```{r salary}
+salaries <- fread("Dataset/Salaries.csv", select = c("playerID", "salary"))
+setnames(salaries, old = c("playerID", "salary"), new = c("Player_ID", "Salary"))
+salaries <- unique(salaries, by = c("Player_ID", names(salaries)[-1]))
+setDT(salaries)
+batting_salary <- merge(batting_person, salaries, by.x = "playerID", by.y = "Player_ID")
+```
+
+```{r salary_model}
+salary_model <- lm(bat_avg ~ Salary, data = batting_salary)
+tidy(salary_model)
+summary(salary_model)
+deviance(salary_model)
+# P-value good, R^2 value too small
+```
+

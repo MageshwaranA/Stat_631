@@ -8,7 +8,7 @@ library(olsrr) # For the forward selection model
 
 # Load batting data from Lahman Baseball Database
 g_batting <- read.csv("~/Stat_631/Dataset/Batting.csv") %>% 
-  select(playerID,yearID,stint,teamID,lgID,G,AB,R,H,X2B,X3B,HR) %>% 
+  select(playerID,yearID,stint,teamID,lgID,G,AB,R,H,X2B,X3B,HR,SB,BB,SO) %>% 
   rename("Player_ID" = playerID,
          "Team" = teamID,
          "League" = lgID,
@@ -18,7 +18,10 @@ g_batting <- read.csv("~/Stat_631/Dataset/Batting.csv") %>%
          "Hits" = H,
          "Doubles" = X2B,
          "Triples" = X3B,
-         "Home_Runs" = HR)
+         "Home_Runs" = HR,
+         "Stolen_Base" = SB,
+         "Walks" = BB,
+         "Strike_Outs" = SO)
 
 
 # Group by player_id and team
@@ -30,7 +33,10 @@ batting <- g_batting %>%
             Hits = sum(Hits),
             Double = sum(Doubles),
             Triples = sum(Triples),
-            Home_Runs = sum(Home_Runs))
+            Home_Runs = sum(Home_Runs),
+            Walks = sum(Walks),
+            Strike_Outs = sum(Strike_Outs),
+            Stolen_Base = sum(Stolen_Base))
 
 
 people <- read.csv("~/Stat_631/Dataset/People.csv") %>% 
@@ -105,17 +111,30 @@ final_data <- merge(final_data, awards, by = "Player_ID",all = FALSE)
 
 # Create new variable for batting average
 final_data$Average <- ifelse(is.nan(final_data$Hits / final_data$At_Bats),0,final_data$Hits / final_data$At_Bats)
-final_data <- subset(final_data,select = -c(At_Bats,Hits,Player_ID))
+final_data <- subset(final_data,select = -c(At_Bats,Hits,Player_ID,Weight,Height))
 # Remove missing data
 final_data <- na.omit(final_data)
+final_data$Team <- as.factor(final_data$Team)
+final_data$Birth_Country <- as.factor(final_data$Birth_Country)
+final_data$Batting_Hand <- as.factor(final_data$Batting_Hand)
+final_data$Throwing_Hand <- as.factor(final_data$Throwing_Hand)
+final_data$Position <- as.factor(final_data$Position)
+final_data$School_Playing <- as.factor(final_data$School_Playing)
+final_data$Awards <- as.factor(final_data$Awards)
 
-
+corrplot(cor(final_data),method = "circle")
 library(corrplot)
 
 # Select only the numeric variables
 numeric_data <- final_data %>% 
   select_if(is.numeric)
-
+numeric_data$Team <- unclass(final_data$Team)
+numeric_data$Birth_Country <- unclass(final_data$Birth_Country)
+numeric_data$Batting_Hand <- unclass(final_data$Batting_Hand)
+numeric_data$Throwing_Hand <- unclass(final_data$Throwing_Hand)
+numeric_data$Position <- unclass(final_data$Position)
+numeric_data$School_Playing <- unclass(final_data$School_Playing)
+numeric_data$Awards <- unclass(final_data$Awards)
 # Calculate the correlation matrix
 cor_matrix <- cor(numeric_data)
 
@@ -144,11 +163,38 @@ selected_model <- step(model, direction="backward")
 summary(selected_model)
 
 
+# Create scatterplot of predicted versus actual batting average
+predicted <- predict(model, newdata = clean_pd)
+ggplot(clean_pd, aes(x = Average, y = predicted)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red") +
+  labs(x = "Actual Batting Average", y = "Predicted Batting Average")
 
 
+AIC <- c()
+BIC <- c()
+AdjustedRSquare <- c()
+# Define a function to perform backward selection
+backward_select <- function(model) {
+  while (TRUE) {
+    pvals <- summary(model)$coefficients[-1, "Pr(>|t|)"]
+    AdjustedRSquare <- append(summary(model)$adj.r.squared)
+    AIC <-  append(AIC(model))
+    BIC <- append(BIC(model))
+    max_pval <- max(pvals)
+    if (max_pval > 0.05) {
+      var_to_remove <- names(which.max(pvals))
+      formula <- formula(paste("Average ~", paste(names(pvals)[-match(var_to_remove, names(pvals))], collapse="+")))
+      model <- lm(formula, data=Sampled_data)
+    } else {
+      break
+    }
+  }
+  return(model)
+}
 
-
-
+# Perform backward selection
+selected_model <- backward_select(model)
 
 
 
@@ -235,4 +281,3 @@ summary(selected_model)
 # full_model <- train(Average ~ ., data = train_data, method = "lm")
 # full_model_pred <- predict(full_model, newdata = test_data)
 # full_model_mse <- mean((full_model_pred - test_data$target_variable)^2)
-# 

@@ -156,7 +156,7 @@ summary(position_model)
 
 
 
-# Test
+# Test (did not work)
 # create a NULL vector called model so we have something to add our layers to
 model=NULL
 

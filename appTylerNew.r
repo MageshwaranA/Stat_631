@@ -202,7 +202,7 @@ server <- function(input, output) {
   })
   
   selected_model <- reactive({
-    step(lm(Average~., data=clean_pd()), direction="backward")
+    stats::step(lm(Average~., data=clean_pd()), direction="backward")
   })
   
   output$selectedoptions <- renderText({

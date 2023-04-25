@@ -97,11 +97,8 @@ collegeplaying <- distinct(collegeplaying)
 awards <- distinct(awards)
 
 #Merging all dataset to get one final dataset
-final_data <- merge(batting, people, by = "Player_ID",all = FALSE)
-final_data <- merge(final_data, fielding, by = c("Player_ID","Team"),all = FALSE)
-final_data <- merge(final_data, salaries , by = c("Player_ID","Team"),all = FALSE)
-final_data <- merge(final_data, collegeplaying, by = "Player_ID",all = FALSE)
-final_data <- merge(final_data, awards, by = "Player_ID",all = FALSE)
+dfList <- list(batting, people, fielding, salaries, collegeplaying, awards)
+final_data <- Reduce(function(x, y) merge(x, y), dfList)
 
 # final_data <- batting %>%
 #   left_join(people, by = "Player_ID",relationship = "many-to-many") %>%
@@ -121,6 +118,91 @@ final_data1 <- final_data
 final_data <- subset(final_data,select = -c(Height,Weight))
 numeric_data <- final_data1 %>% 
   select_if(is.numeric)
+
+################################################################################
+mlr_model_full <- lm(Average ~ Team + Games_Played + Runs + Double + Walks + Strike_Outs + 
+  Stolen_Base + Birth_Country + Batting_Hand + Throwing_Hand + 
+  Position + Salary + School_Playing + Awards, data = final_data)
+summary(mlr_model_full)
+
+log_mlr_model_full <- lm(Average ~ Team + log(Games_Played) + Runs + Double + Walks + Strike_Outs + 
+                       Stolen_Base + Birth_Country + Batting_Hand + Throwing_Hand + 
+                       Position + log(Salary) + School_Playing + Awards, data = final_data)
+summary(log_mlr_model_full)
+
+mlr_model <- lm(Average ~ Team + log(Games_Played) + Birth_Country + Batting_Hand + Throwing_Hand + 
+  Position + log(Salary) + Awards + School_Playing, data = final_data)
+summary(mlr_model)
+
+################################################################################
+team_position_model <- lm(Average ~ Team + Position, data = final_data)
+summary(team_position_model)
+
+games_model <- lm(Average ~ Games_Played, data = final_data)
+summary(games_model)
+
+position_model <- lm(Average ~ Position, data = final_data)
+summary(position_model)
+
+games_position_model <- lm(Average ~ Games_Played + Position, data = final_data)
+summary(games_position_model)
+
+#Distribution not normal
+final_data %>% 
+  ggplot(aes(x=Games_Played)) + 
+  geom_histogram(bins = 24) + 
+  theme_bw()
+
+final_data %>% 
+  ggplot(aes(x=log(Games_Played))) + 
+  geom_histogram(bins = 24) + 
+  theme_bw()
+
+# Use this instead of games_position_model
+log_games_position_model <- lm(Average ~ log(Games_Played) + Position, data = final_data)
+summary(log_games_position_model)
+
+salary_model <- lm(Average ~ Salary, data = final_data)
+summary(salary_model)
+
+# Distribution not normal
+final_data %>% 
+  ggplot(aes(x=Salary)) + 
+  geom_histogram(bins = 24) + 
+  theme_bw()
+
+final_data %>% 
+  ggplot(aes(x=log(Salary))) + 
+  geom_histogram(bins = 24) + 
+  theme_bw()
+
+log_salary_model <- lm(Average ~ log(Salary), data = final_data)
+summary(log_salary_model)
+
+games_position_salary_model <- lm(Average ~ log(Games_Played) + Salary + Position, data = final_data)
+summary(games_position_salary_model)
+
+# Salary doesn't add enough to the model. Remove salary.
+log_games_position_salary_model <- lm(Average ~ log(Games_Played) + log(Salary) + Position, data = final_data)
+summary(log_games_position_salary_model)
+
+# With Team (Best so far)
+games_position_team_model <- lm(Average ~ log(Games_Played) + Position + Team, data = final_data)
+summary(games_position_team_model)
+
+# Batting_Hand Model
+batting_hand_model <- lm(Average ~ Batting_Hand, data = final_data)
+summary(batting_hand_model)
+
+# With Batting_Hand (not good enough)
+games_position_team_hand_model <- lm(Average ~ log(Games_Played) + Position + Team + Batting_Hand, data = final_data)
+summary(games_position_team_hand_model)
+
+# With School_Playing
+games_position_team_school_model <- lm(Average ~ log(Games_Played) + Position + Team + School_Playing, data = final_data)
+summary(games_position_team_school_model)
+
+################################################################################
 
 # Define user interface
 ui <- fluidPage(
@@ -203,7 +285,7 @@ server <- function(input, output) {
   })
   
   selected_model <- reactive({
-    step(lm(Average~., data=clean_pd()), direction="backward")
+    stats::step(lm(Average~., data=clean_pd()), direction="backward")
   })
   
   output$selectedoptions <- renderText({
@@ -265,7 +347,7 @@ The numerical values are considered for the correlation matrix since the categor
   
   output$descoutliers <- renderText({
     paste(br(),"The scatterplot shows a strong positive relationship between the variables, with most points closely following this trend. The outliers at the upper end of the x-axis have been removed, and the remaining data points form a more tightly clustered pattern. The correlation coefficient has increased, indicating a stronger linear relationship between the variables."
-          ,"The Adjusted R squared value of the modl after outliers being removed is:<b>",round(summary(lm(Average~., data=clean_pd()))$adj.r.squared * 100,2),",</b>",
+          ,"The Adjusted R squared value of the model after the outliers are removed is:<b>",round(summary(lm(Average~., data=clean_pd()))$adj.r.squared * 100,2),",</b>",
           br(),br(),"<b> Backward Selection for determining the best model</b>",
           br(),br(),"The backward selected model is:",
           br(),"Team, Games_Played, Runs, Double, Walks, Strike_Outs, 
@@ -283,7 +365,7 @@ The numerical values are considered for the correlation matrix since the categor
     # Create a residual plot
     paste("The adjusted R Square value of the Backward Selected Model is: <b>",round(summary(selected_model())$adj.r.squared * 100,2),"</b>",
           br(),"The F-statistic and its associated p-value indicate whether the overall model is statistically significant. In this case, the F-statistic is <b>",
-          summary(model())$fstatistic[1],"</b> indicating that the model is statistically significant.")
+          summary(model())$fstatistic[1],"</b>, indicating that the model is statistically significant.")
   })
   output$adj_r_squared <- renderText({
     paste(round(summary(selected_model())$adj.r.squared * 100,0),"%")

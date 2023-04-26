@@ -186,7 +186,7 @@ summary(games_position_salary_model)
 log_games_position_salary_model <- lm(Average ~ log(Games_Played) + log(Salary) + Position, data = final_data)
 summary(log_games_position_salary_model)
 
-# With Team (Best so far)
+# With Team (Use this model)
 games_position_team_model <- lm(Average ~ log(Games_Played) + Position + Team, data = final_data)
 summary(games_position_team_model)
 
@@ -198,7 +198,7 @@ summary(batting_hand_model)
 games_position_team_hand_model <- lm(Average ~ log(Games_Played) + Position + Team + Batting_Hand, data = final_data)
 summary(games_position_team_hand_model)
 
-# With School_Playing
+# With School_Playing - won't work due to overfitting.
 games_position_team_school_model <- lm(Average ~ log(Games_Played) + Position + Team + School_Playing, data = final_data)
 summary(games_position_team_school_model)
 

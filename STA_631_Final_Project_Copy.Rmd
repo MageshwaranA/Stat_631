@@ -14,6 +14,24 @@ library(data.table)
 library(stringr)
 ```
 
+```{r get_set_dir}
+#-----------------Gets Directory and sets Working Directory------------------------------
+getCurrentFileLocation <-  function(){
+  this_file <- commandArgs() %>%
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file) == 0)
+  {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+setwd(print(getCurrentFileLocation()))
+```
+
+
 ```{r load_data}
 batting_data <- read_csv("Dataset/mlbbat10.csv") %>%
   select(c("name", "team", "position", "bat_avg", "at_bat", "game")) %>%

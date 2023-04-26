@@ -1,0 +1,14 @@
+---
+title: "New Model Description"
+author: "Tyler"
+date: "4/25/2023"
+output: word_document
+---
+
+The final model we created uses Games_Played, Position, Team and log(Games_Played) as its parameters. We came up with this model by looking at the parameters chosen through Backwards Selection and removing the ones that are potentially impacted by Batting Average. These include Runs, Double, Walks, Strike_Outs, Stolen_Base and Awards. We then tested different combinations of other predictive variables for our model. Variables that did not contribute to a significant increase in the R^2 value (such as Salary) were not included. We also removed School_Playing as a variable. While School_Playing did contribute to a notable increase in the R^2 value, we also felt that it would lead to overfitting. Lastly, we performed a log transformation on Games_Played since the distribution for this parameter was heavily skewed to the right. The R^2 value of our model (before removing outliers) was 44.53%. While this is not as high as R^2 value of our previous model, it solves several problems with overfitting and the use of irrelevant variables.
+
+*Do not include in program:
+
+Creation and testing of models - appTylerAdditions.r lines 123 - 203
+Histogram showing distribution of Games_Played - appTylerAdditions.r lines 151 - 159
+Final model - appTylerAdditions.r lines 190 - 191

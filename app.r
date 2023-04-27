@@ -121,6 +121,110 @@ final_data <- subset(final_data,select = -c(Height,Weight))
 numeric_data <- final_data1 %>% 
   select_if(is.numeric)
 
+################################################################################
+#TYLER MODEL
+mlr_model_full <- lm(Average ~ Team + Games_Played + Runs + Double + Walks + Strike_Outs + 
+                       Stolen_Base + Birth_Country + Batting_Hand + Throwing_Hand + 
+                       Position + Salary + School_Playing + Awards, data = final_data)
+
+
+log_mlr_model_full <- lm(Average ~ Team + log(Games_Played) + Runs + Double + Walks + Strike_Outs + 
+                           Stolen_Base + Birth_Country + Batting_Hand + Throwing_Hand + 
+                           Position + log(Salary) + School_Playing + Awards, data = final_data)
+
+
+mlr_model <- lm(Average ~ Team + log(Games_Played) + Birth_Country + Batting_Hand + Throwing_Hand + 
+                  Position + log(Salary) + Awards + School_Playing, data = final_data)
+
+
+team_position_model <- lm(Average ~ Team + Position, data = final_data)
+
+
+games_model <- lm(Average ~ Games_Played, data = final_data)
+
+
+position_model <- lm(Average ~ Position, data = final_data)
+
+
+games_position_model <- lm(Average ~ Games_Played + Position, data = final_data)
+
+
+# Use this instead of games_position_model
+log_games_position_model <- lm(Average ~ log(Games_Played) + Position, data = final_data)
+# summary(log_games_position_model)
+
+salary_model <- lm(Average ~ Salary, data = final_data)
+# summary(salary_model)
+
+
+log_salary_model <- lm(Average ~ log(Salary), data = final_data)
+# summary(log_salary_model)
+
+games_position_salary_model <- lm(Average ~ log(Games_Played) + Salary + Position, data = final_data)
+# summary(games_position_salary_model)
+
+# Salary doesn't add enough to the model. Remove salary.
+log_games_position_salary_model <- lm(Average ~ log(Games_Played) + log(Salary) + Position, data = final_data)
+# summary(log_games_position_salary_model)
+
+# With Team (Use this model)
+games_position_team_model <- lm(Average ~ log(Games_Played) + Position + Team, data = final_data)
+# summary(games_position_team_model)
+
+# Batting_Hand Model
+batting_hand_model <- lm(Average ~ Batting_Hand, data = final_data)
+# summary(batting_hand_model)
+
+# With Batting_Hand (not good enough)
+games_position_team_hand_model <- lm(Average ~ log(Games_Played) + Position + Team + Batting_Hand, data = final_data)
+# summary(games_position_team_hand_model)
+
+# With School_Playing - won't work due to overfitting.
+games_position_team_school_model <- lm(Average ~ log(Games_Played) + Position + Team + School_Playing, data = final_data)
+# summary(games_position_team_school_model)
+
+TypesOfModel <- c("MLR Full Model","Log MLR Full Model","MLR Model",
+          "team_position_model","games_model","position_model","games_position_model",
+          "log_games_position_model","salary_model","log_salary_model","games_position_salary_model",
+          "log_games_position_salary_model","games_position_team_model","batting_hand_model",
+          "games_position_team_hand_model","games_position_team_school_model")
+Fstatistics <- c(summary(mlr_model_full)$fstatistic[1],
+                 summary(log_mlr_model_full)$fstatistic[1],
+                 summary(mlr_model)$fstatistic[1],
+                 summary(team_position_model)$fstatistic[1],
+                 summary(games_model)$fstatistic[1],
+                 summary(position_model)$fstatistic[1],
+                 summary(games_position_model)$fstatistic[1],
+                 summary(log_games_position_model)$fstatistic[1],
+                 summary(salary_model)$fstatistic[1],
+                 summary(log_salary_model)$fstatistic[1],
+                 summary(games_position_salary_model)$fstatistic[1],
+                 summary(log_games_position_salary_model)$fstatistic[1],
+                 summary(games_position_team_model)$fstatistic[1],
+                 summary(batting_hand_model)$fstatistic[1],
+                 summary(games_position_team_hand_model)$fstatistic[1],
+                 summary(games_position_team_school_model)$fstatistic[1])
+
+Rsquared <- c(summary(mlr_model_full)$r.squared,
+              summary(log_mlr_model_full)$r.squared,
+              summary(mlr_model)$r.squared,
+              summary(team_position_model)$r.squared,
+              summary(games_model)$r.squared,
+              summary(position_model)$r.squared,
+              summary(games_position_model)$r.squared,
+              summary(log_games_position_model)$r.squared,
+              summary(salary_model)$r.squared,
+              summary(log_salary_model)$r.squared,
+              summary(games_position_salary_model)$r.squared,
+              summary(log_games_position_salary_model)$r.squared,
+              summary(games_position_team_model)$r.squared,
+              summary(batting_hand_model)$r.squared,
+              summary(games_position_team_hand_model)$r.squared,
+              summary(games_position_team_school_model)$r.squared)
+table1 <- data.frame(TypesOfModel,Fstatistics,Rsquared)
+
+################################################################################
+
 # Define user interface
 ui <- fluidPage(
   titlePanel("Influential Factors on Baseball Batting Average"),
@@ -157,7 +261,10 @@ ui <- fluidPage(
         style = "font-size: 24px;",
         "Adjusted R-squared:",
         textOutput("adj_r_squared")
-      )
+      ),
+      radioButtons("options", "Model Selection Type:",
+                   c("Automatic" = "auto",
+                     "Manual" = "Manual"))
     ),
     mainPanel(
       h4("Multiple Linear Regression Model:"),
@@ -180,113 +287,171 @@ ui <- fluidPage(
 # Define server logic
 server <- function(input, output) {
   
-  # independent_vars <- reactive({
-  #   input$options
-  # })
   
-  model <- reactive({
-    # lm(Average ~ ., data = final_data[, c("Average", independent_vars())])
-    lm(Average ~., data = final_data)
-  })
-  
-  t <- reactive({
-    4/nrow(final_data)
-  })
-  
-  cooks_distance <- reactive({
-    cooks.distance(model())
-  })
-  
-  clean_pd <- reactive({
-    final_data[-c(which(cooks_distance()>t())),]
-  })
-  
-  selected_model <- reactive({
-    step(lm(Average~., data=clean_pd()), direction="backward")
-  })
-  
-  output$selectedoptions <- renderText({
-    paste("In this report, we will be determining the influential factors for the batting average of baseball players.",br(),br()," First, let's load the <b>Lahman</b> package, <b>dplyr</b> package, <b>ggplot2</b> package, <b>corrplot</b> package, and the <b>olsrr</b> package which we'll use to manipulate the data.",br(),br()," Next, let's load the data and explore it.",br(),br()," The batting dataset has 112,184 observations and 15 variables, the people dataset has 20676 observations and 6 variables, the fielding dataset has 72495 observations and 3 variables, the salary dataset has 26428 observations and 3 variables, the college playing dataset has 7550 observations and 2 variables and finally the awards dataset has 3122 observations and 2 variables.
+    model <- reactive({
+      # lm(Average ~ ., data = final_data[, c("Average", independent_vars())])
+      lm(Average ~., data = final_data)
+    })
+    
+    t <- reactive({
+      4/nrow(final_data)
+    })
+    
+    cooks_distance <- reactive({
+      cooks.distance(model())
+    })
+    
+    clean_pd <- reactive({
+      final_data[-c(which(cooks_distance()>t())),]
+    })
+    
+    selected_model <- reactive({
+      step(lm(Average~., data=clean_pd()), direction="backward")
+    })
+    
+    output$selectedoptions <- renderText({
+      if (input$options == "auto"){
+        paste("In this report, we will be determining the influential factors for the batting average of baseball players.",br(),br()," First, let's load the <b>Lahman</b> package, <b>dplyr</b> package, <b>ggplot2</b> package, <b>corrplot</b> package, and the <b>olsrr</b> package which we'll use to manipulate the data.",br(),br()," Next, let's load the data and explore it.",br(),br()," The batting dataset has 112,184 observations and 15 variables, the people dataset has 20676 observations and 6 variables, the fielding dataset has 72495 observations and 3 variables, the salary dataset has 26428 observations and 3 variables, the college playing dataset has 7550 observations and 2 variables and finally the awards dataset has 3122 observations and 2 variables.
 
 ",br(),br(),"The dataset contains a record for each year, each team of every player, and thus they are grouped together to reduce the size of the dataset. Then all the datasets are merged to form a final dataset with observations present in all the datasets. As the last step, the dataset is checked for NA values and omitted if any. 
 
 Average of the baseball player is calculated based on the following formula:",br(),br(),
-
-"<b>Average = Hits / At_Bats</b>",br(),br(),
-
-"We'll be using <b>Average</b> as our response variable, which is the batting average, and other factors that could influence the batting average. We'll select a few variables that we think might be important for the analysis.
+              
+              "<b>Average = Hits / At_Bats</b>",br(),br(),
+              
+              "We'll be using <b>Average</b> as our response variable, which is the batting average, and other factors that could influence the batting average. We'll select a few variables that we think might be important for the analysis.
 
 We have selected Games Played, Team, Runs, Double, Triples, Home Runs, Walks, Strike Outs, Stolen Base, Birth Country, Weight, Height, Batting Hand, Throwing Hand, Position, Salary, School Playing, Awards. We have left out the Player ID, At bats and hits from the model since they are directly related to the average and to avoid overfitting. 
 
 The numerical values are considered for the correlation matrix since the categorical variables will not be supported.",br() 
-)
-  })
-  
-  output$correlationplot <- renderPlot({
+        )
+      }
+      # else{
+      #   paste(summary(mlr_model_full),br(),br(),
+      #         summary(log_mlr_model_full),br(),br(),summary(mlr_model),br(),br(),summary(position_model),br(),br(),
+      #         summary(games_position_model),br(),br()
+      #         )
+      # }
+      
+    })
     
-    corrplot(cor(numeric_data), method = "circle")
-  })
-  
-  
-  output$des <- renderText({
-    paste(br(),"From the correlation matrix, we can see that the variables Games Played, Runs, Doubles, Triples, Home Runs, Walks, Strike Outs, Stolen Bases, and Salary have the highest correlation with the batting average.")
-  })
-  
-  output$beforescatter <- renderPlot({
-    predicted <- predict(model(), newdata = final_data)
-    ggplot(final_data, aes(x = Average, y = predicted)) +
-      geom_point() +
-      geom_abline(intercept = 0, slope = 1, color = "red") +
-      labs(x = "Actual Batting Average", y = "Predicted Batting Average")
-  })
-
-  output$bsdesc <- renderText({
-    paste(br(),"The scatterplot shows a weak positive relationship between the variables, with some scattered points but no clear pattern. There appear to be a few outliers at the upper end of the x-axis, with some extreme values that are far from the general trend of the data.",
-          br(),"The adjusted R Square value for the model with outliers is<b>",round(summary(model())$adj.r.squared * 100,2),"</b>")
-  })
-  
-  output$outliers <- renderPlot({
-    plot(cooks_distance())
-  })
-  
-
-  output$outdesc <- renderText({
-    paste(br(),"The Cook's distance plot for the multiple linear regression model is a graphical representation of the influence of each observation on the model. Each point on the plot represents an observation and the Cook's distance value for that observation. The plot is useful in identifying outliers that may be having a significant impact on the model.")
-  })
-  
-  output$afterscatter <- renderPlot({
-    predicted <- predict(model(), newdata = clean_pd())
-    ggplot(clean_pd(), aes(x = Average, y = predicted)) +
-      geom_point() +
-      geom_abline(intercept = 0, slope = 1, color = "red") +
-      labs(x = "Actual Batting Average", y = "Predicted Batting Average")
-  })
-  
-  output$descoutliers <- renderText({
-    paste(br(),"The scatterplot shows a stronger positive relationship between the variables, with most points closely following the trend. The outliers at the upper end of the x-axis have been removed, and the remaining data points form a more tightly clustered pattern. The correlation coefficient has increased, indicating a stronger linear relationship between the variables."
-          ,"The Adjusted R squared value of the modl after outliers being removed is:<b>",round(summary(lm(Average~., data=clean_pd()))$adj.r.squared * 100,2),",</b>",
-          br(),br(),"<b> Backward Selection for determining the best model</b>",
-          br(),br(),"The backward selected model is:",
-          br(),"Team, Games_Played, Runs, Double, Walks, Strike_Outs, 
+    output$correlationplot <- renderPlot({
+      if(input$options == "auto"){
+        corrplot(cor(numeric_data), method = "circle")
+      }
+      else{
+        final_data %>% 
+          ggplot(aes(x=Games_Played)) + 
+          geom_histogram(bins = 24) + 
+          theme_bw()
+      }
+      
+    })
+    
+    
+    output$des <- renderText({
+      if(input$options == "auto"){
+        paste(br(),"From the correlation matrix, we can see that the variables Games Played, Runs, Doubles, Triples, Home Runs, Walks, Strike Outs, Stolen Bases, and Salary have the highest correlation with the batting average.")
+      }
+          })
+    
+    output$beforescatter <- renderPlot({
+      if(input$options == "auto"){
+        predicted <- predict(model(), newdata = final_data)
+        ggplot(final_data, aes(x = Average, y = predicted)) +
+          geom_point() +
+          geom_abline(intercept = 0, slope = 1, color = "red") +
+          labs(x = "Actual Batting Average", y = "Predicted Batting Average")
+      }
+      else{
+        final_data %>% 
+          ggplot(aes(x=log(Games_Played))) + 
+          geom_histogram(bins = 24) + 
+          theme_bw()
+      }
+      
+    })
+    
+    output$bsdesc <- renderText({
+      if(input$options == "auto"){
+        paste(br(),"The scatterplot shows a weak positive relationship between the variables, with some scattered points but no clear pattern. There appear to be a few outliers at the upper end of the x-axis, with some extreme values that are far from the general trend of the data.",
+              br(),"The adjusted R Square value for the model with outliers is<b>",round(summary(model())$adj.r.squared * 100,2),"</b>")
+      }
+       })
+    
+    output$outliers <- renderPlot({
+      if(input$options == "auto"){
+        plot(cooks_distance())
+      }
+      else{
+        final_data %>% 
+          ggplot(aes(x=log(Salary))) + 
+          geom_histogram(bins = 24) + 
+          theme_bw()
+      }
+    })
+    
+    
+    output$outdesc <- renderText({
+      if(input$options == "auto"){
+        paste(br(),"The Cook's distance plot for the multiple linear regression model is a graphical representation of the influence of each observation on the model. Each point on the plot represents an observation and the Cook's distance value for that observation. The plot is useful in identifying outliers that may be having a significant impact on the model.")
+      }
+      
+    # else{
+    #   paste(summary(log_games_position_model),br(),br(),summary(salary_model),br(),br(),summary(log_salary_model),br(),br(),summary(games_position_salary_model),br(),br(),summary(log_games_position_salary_model),br(),br(),summary(games_position_team_model),br(),br(),summary(batting_hand_model),br(),br(),summary(games_position_team_hand_model),br(),br(),summary(games_position_team_school_model))
+    # }
+      })
+    
+    output$afterscatter <- renderPlot({
+      if(input$options == "auto"){
+        predicted <- predict(model(), newdata = clean_pd())
+        ggplot(clean_pd(), aes(x = Average, y = predicted)) +
+          geom_point() +
+          geom_abline(intercept = 0, slope = 1, color = "red") +
+          labs(x = "Actual Batting Average", y = "Predicted Batting Average")
+      }
+    })
+    
+    output$descoutliers <- renderText({
+      if(input$options == "auto"){
+        paste(br(),"The scatterplot shows a stronger positive relationship between the variables, with most points closely following the trend. The outliers at the upper end of the x-axis have been removed, and the remaining data points form a more tightly clustered pattern. The correlation coefficient has increased, indicating a stronger linear relationship between the variables."
+              ,"The Adjusted R squared value of the modl after outliers being removed is:<b>",round(summary(lm(Average~., data=clean_pd()))$adj.r.squared * 100,2),",</b>",
+              br(),br(),"<b> Backward Selection for determining the best model</b>",
+              br(),br(),"The backward selected model is:",
+              br(),"Team, Games_Played, Runs, Double, Walks, Strike_Outs, 
     Stolen_Base, Birth_Country, Batting_Hand, Throwing_Hand, 
     Position, Salary, School_Playing, Awards")
-  })
-  
-  output$AIC <- renderDataTable({
-    Model <- c("Model 1","Model 2","Model 3")
-    AIC <- c(selected_model()$anova$AIC[[1]],selected_model()$anova$AIC[[2]],selected_model()$anova$AIC[[3]])
-    table <- data.frame(Model,AIC)
-    table
-  })
-  output$backwarddesc <- renderText({
-    # Create a residual plot
-    paste("The adjusted R Square value of the Backward Selected Model is: <b>",round(summary(selected_model())$adj.r.squared * 100,2),"</b>",
-          br(),"The F-statistic and its associated p-value indicate whether the overall model is statistically significant. In this case, the F-statistic is <b>",
-          summary(model())$fstatistic[1],"</b> indicating that the model is statistically significant.")
-  })
-  output$adj_r_squared <- renderText({
-    paste(round(summary(selected_model())$adj.r.squared * 100,0),"%")
-  })
+      }
+    })
+    
+    output$AIC <- renderDataTable({
+      if(input$options == "auto"){
+        Model <- c("Model 1","Model 2","Model 3")
+        AIC <- c(selected_model()$anova$AIC[[1]],selected_model()$anova$AIC[[2]],selected_model()$anova$AIC[[3]])
+        table <- data.frame(Model,AIC)
+        table
+      }
+      else{
+        table1
+      }
+    })
+    output$backwarddesc <- renderText({
+      if(input$options == "auto"){
+        # Create a residual plot
+        paste("The adjusted R Square value of the Backward Selected Model is: <b>",round(summary(selected_model())$adj.r.squared * 100,2),"</b>",
+              br(),"The F-statistic and its associated p-value indicate whether the overall model is statistically significant. In this case, the F-statistic is <b>",
+              summary(model())$fstatistic[1],"</b> indicating that the model is statistically significant.")
+      }
+      })
+    output$adj_r_squared <- renderText({
+      if(input$options == "auto"){
+        paste(round(summary(selected_model())$adj.r.squared * 100,0),"%")
+      }
+      else{
+        paste(round(summary(log_mlr_model_full)$r.squared * 100,0),"%")
+      }
+    })
+
   
 }
 
